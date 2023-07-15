@@ -1,0 +1,134 @@
+substitutions:
+  name: "gosund-ep2"
+  friendly_name: "Gosund EP2"
+  # Higher value gives lower watt readout
+  current_res: "0.00221" # geeicht mit 2000W Heizlüfter
+  # Lower value gives lower voltage readout
+  voltage_div: "733"
+
+esphome:
+  name: "${name}"
+  # Friendly names are used where appropriate in Home Assistant
+  friendly_name: "${friendly_name}"
+  # Automatically add the mac address to the name
+  # so you can use a single firmware for all devices
+  name_add_mac_suffix: true
+
+  # This will allow for (future) project identification,
+  # configuration and updates.
+  project:
+    name: jhbruhn.gosund-ep2
+    version: "1.0"
+logger:
+
+api:
+
+ota:
+  password: "update5938"
+
+wifi:
+  ap:
+    password: "12345678"
+
+web_server:
+
+captive_portal:
+
+dashboard_import:
+  package_import_url: github://jhbruhn/esphome-firmware/plug/gosund-ep2.yaml@main
+  import_full_config: true
+
+esp8266:
+  board: esp8285
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+binary_sensor:
+  # Binary sensor for the button press
+  - platform: gpio
+    name: "Button"
+    internal: true
+    pin:
+      number: GPIO13
+      inverted: true
+    on_press:
+      - switch.toggle: relay
+
+switch:
+  - platform: gpio
+    id: relay
+    name: "Schalter"
+    pin: GPIO15
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      - light.turn_on: led
+    on_turn_off:
+      - light.turn_off: led
+
+sensor:
+  - platform: hlw8012
+    sel_pin:
+      number: GPIO12
+      inverted: True
+    cf_pin: GPIO05
+    cf1_pin: GPIO04
+    current_resistor: ${current_res}
+    voltage_divider: ${voltage_div}
+    current:
+      name: "Strom"
+      unit_of_measurement: A
+      id: current
+    voltage:
+      name: "Spannung"
+      unit_of_measurement: V
+      id: voltage
+    power:
+      name: "Leistung"
+      unit_of_measurement: W
+      id: "wattage"
+      filters:
+        - sliding_window_moving_average:
+            window_size: 6
+            send_every: 3
+    change_mode_every: 16
+    update_interval: 5s
+  - platform: total_daily_energy
+    name: "Tagesverbrauch"
+    power_id: "wattage"
+    filters:
+      # Multiplication factor from W to kW is 0.001
+      - multiply: 0.001
+    unit_of_measurement: kWh
+
+  - platform: uptime
+    name: Uptime
+
+  - platform: wifi_signal
+    name: WiFi Signal
+    update_interval: 60s
+
+output:
+  # blue LED
+  - platform: esp8266_pwm
+    id: state_led
+    pin:
+      number: GPIO02
+      inverted: true
+
+light:
+  # Relay state light
+  - platform: monochromatic
+    output: state_led
+    id: led
+
+# green LED
+status_led:
+  pin:
+    number: GPIO00
+    inverted: true
+
+button:
+  - platform: factory_reset
+    name: Restart with Factory Default Settings
